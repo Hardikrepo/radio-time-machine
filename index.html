@@ -34,7 +34,7 @@
     font-size: 2rem;
     letter-spacing: 0.02em;
   }
-  header h1 span { color: var(--accent); }
+  header h1 span { color: var(--accent); transition: color 1.8s ease; }
   header p {
     margin: 6px 0 0;
     color: var(--text-dim);
@@ -66,7 +66,7 @@
     font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: filter 0.15s ease;
+    transition: filter 0.15s ease, background-color 1.8s ease;
   }
   button#searchBtn:hover { filter: brightness(1.08); }
   button#searchBtn:active { filter: brightness(0.92); }
@@ -95,7 +95,7 @@
     border-radius: 10px;
     padding: 14px 16px;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background 0.15s ease, border-color 1.8s ease;
   }
   .card:hover { background: var(--panel-hover); }
   .card.active {
@@ -127,6 +127,7 @@
     font-size: 0.75rem;
     color: var(--accent);
     opacity: 0.85;
+    transition: color 1.8s ease;
   }
 
   #player-bar {
@@ -173,6 +174,7 @@
     font-weight: 600;
     font-size: 0.85rem;
     padding: 6px 0;
+    transition: background-color 1.8s ease;
   }
   .howto-marquee marquee {
     width: 100%;
@@ -385,6 +387,15 @@ skipBtn.addEventListener("click", () => {
 });
 
 searchBtn.addEventListener("click", search);
+
+// Rotates the accent color every few seconds so the whole site's
+// look (buttons, marquee, active card, tags) shifts hue together.
+const ACCENT_CYCLE_MS = 4000;
+let accentHue = 28; // starting hue matches the original amber (#ff9d3d)
+setInterval(() => {
+  accentHue = (accentHue + 47) % 360; // jump around the wheel, not a slow crawl
+  document.documentElement.style.setProperty("--accent", `hsl(${accentHue}, 85%, 60%)`);
+}, ACCENT_CYCLE_MS);
 
 loadCountries();
 </script>
