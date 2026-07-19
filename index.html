@@ -166,9 +166,26 @@
     font-size: 0.9rem;
     grid-column: 1 / -1;
   }
+
+  .howto-marquee {
+    background: var(--accent);
+    color: #1a1200;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 6px 0;
+  }
+  .howto-marquee marquee {
+    width: 100%;
+  }
 </style>
 </head>
 <body>
+
+<div class="howto-marquee">
+  <marquee behavior="scroll" direction="left" scrollamount="6">
+    📻 How to use Radio Time Machine — 1) Pick a country (or leave "Any country") &nbsp;·&nbsp; 2) Choose a vibe like 80s Synth or Jazz &amp; Lounge &nbsp;·&nbsp; 3) Click "Tune In" to search live stations &nbsp;·&nbsp; 4) Click any station card to start streaming &nbsp;·&nbsp; if a stream is offline, we auto-skip to the next one &nbsp;·&nbsp; use "Skip ▶" anytime to jump to the next station &nbsp;·&nbsp;
+  </marquee>
+</div>
 
 <header>
   <h1>Radio <span>Time Machine</span></h1>
