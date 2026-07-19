@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Radio Time Machine</title>
+<style>
+  :root {
+    --bg: #12141c;
+    --panel: #1b1e29;
+    --panel-hover: #232734;
+    --accent: #ff9d3d;
+    --accent-dim: #ff9d3d55;
+    --text: #eef0f5;
+    --text-dim: #9296a6;
+    --border: #2a2e3d;
+    --ok: #4caf7d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(circle at top, #1a1d2b 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 110px;
+  }
+  header {
+    padding: 32px 24px 12px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 2rem;
+    letter-spacing: 0.02em;
+  }
+  header h1 span { color: var(--accent); }
+  header p {
+    margin: 6px 0 0;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+  .controls {
+    max-width: 900px;
+    margin: 24px auto 0;
+    padding: 0 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+  }
+  select, button {
+    font-size: 0.95rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-family: inherit;
+  }
+  select { min-width: 200px; }
+  button#searchBtn {
+    background: var(--accent);
+    color: #1a1200;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+  button#searchBtn:hover { filter: brightness(1.08); }
+  button#searchBtn:active { filter: brightness(0.92); }
+
+  #status {
+    max-width: 900px;
+    margin: 16px auto 0;
+    padding: 0 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    min-height: 1.2em;
+  }
+
+  #results {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover { background: var(--panel-hover); }
+  .card.active {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, var(--panel-hover), var(--panel));
+  }
+  .card .name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card .name .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ok);
+    display: none;
+    flex-shrink: 0;
+  }
+  .card.active .name .pulse { display: inline-block; }
+  .card .meta {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .card .tags {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    opacity: 0.85;
+  }
+
+  #player-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #14161f;
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  #nowPlaying {
+    flex: 1;
+    min-width: 200px;
+    font-size: 0.9rem;
+  }
+  #nowPlaying .label {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+  }
+  #player-bar audio { flex-shrink: 0; }
+  #skipBtn {
+    cursor: pointer;
+    background: var(--panel);
+  }
+  #skipBtn:hover { background: var(--panel-hover); }
+
+  .empty-hint {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 20px;
+    font-size: 0.9rem;
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Radio <span>Time Machine</span></h1>
+  <p>Pick a country and a vibe — get live internet radio streaming that matches it.</p>
+</header>
+
+<div class="controls">
+  <select id="countrySelect"><option value="">Any country</option></select>
+  <select id="vibeSelect"></select>
+  <button id="searchBtn">Tune In</button>
+</div>
+
+<div id="status"></div>
+
+<div id="results"></div>
+
+<div id="player-bar">
+  <div id="nowPlaying"><span class="label">Now Playing</span>Nothing yet — pick a station above</div>
+  <audio id="audio" controls></audio>
+  <button id="skipBtn">Skip ▶</button>
+</div>
+
+<script>
+const API_BASE = "https://de1.api.radio-browser.info";
+
+const VIBES = {
+  "60s-oldies":     { label: "60s Oldies",           tags: ["60s", "1960s", "oldies"] },
+  "70s-classic":    { label: "70s Classics",         tags: ["70s", "1970s", "classic rock"] },
+  "80s-synth":      { label: "80s Synth & New Wave",  tags: ["80s", "1980s", "synthpop", "new wave"] },
+  "90s-alt":        { label: "90s Alternative",       tags: ["90s", "1990s", "alternative", "grunge"] },
+  "2000s-pop":      { label: "2000s Pop",             tags: ["2000s", "pop"] },
+  "jazz-lounge":    { label: "Jazz & Lounge",         tags: ["jazz", "lounge", "smooth jazz"] },
+  "classical":      { label: "Classical",             tags: ["classical"] },
+  "lofi-chill":     { label: "Lo-fi & Chill",         tags: ["lofi", "chillout", "chill"] },
+  "electronic":     { label: "Electronic & Dance",    tags: ["electronic", "dance", "edm", "house"] },
+  "latin":          { label: "Latin",                 tags: ["latin", "salsa", "reggaeton"] },
+  "classic-rock":   { label: "Classic Rock",          tags: ["classic rock", "rock"] },
+  "news-talk":      { label: "News & Talk",           tags: ["news", "talk"] },
+};
+
+const countrySelect = document.getElementById("countrySelect");
+const vibeSelect = document.getElementById("vibeSelect");
+const searchBtn = document.getElementById("searchBtn");
+const statusEl = document.getElementById("status");
+const resultsEl = document.getElementById("results");
+const audio = document.getElementById("audio");
+const nowPlaying = document.getElementById("nowPlaying");
+const skipBtn = document.getElementById("skipBtn");
+
+let currentList = [];
+let currentIndex = -1;
+let skipAttempts = 0;
+const MAX_SKIP_ATTEMPTS = 6;
+
+for (const [key, v] of Object.entries(VIBES)) {
+  const opt = document.createElement("option");
+  opt.value = key;
+  opt.textContent = v.label;
+  vibeSelect.appendChild(opt);
+}
+
+async function loadCountries() {
+  try {
+    const res = await fetch(`${API_BASE}/json/countries`);
+    const data = await res.json();
+    data
+      .filter(c => c.stationcount > 0)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.iso_3166_1;
+        opt.textContent = `${c.name} (${c.stationcount})`;
+        countrySelect.appendChild(opt);
+      });
+  } catch (e) {
+    statusEl.textContent = "Couldn't load country list — search still works with 'Any country'.";
+  }
+}
+
+async function search() {
+  const vibeKey = vibeSelect.value;
+  const vibe = VIBES[vibeKey];
+  const country = countrySelect.value;
+
+  statusEl.textContent = "Searching the airwaves...";
+  resultsEl.innerHTML = "";
+  searchBtn.disabled = true;
+
+  const seen = new Set();
+  const merged = [];
+
+  try {
+    for (const tag of vibe.tags) {
+      const params = new URLSearchParams({
+        tag,
+        limit: "20",
+        order: "clickcount",
+        reverse: "true",
+        hidebroken: "true",
+      });
+      if (country) params.set("countrycode", country);
+
+      const res = await fetch(`${API_BASE}/json/stations/search?${params}`);
+      const data = await res.json();
+      for (const st of data) {
+        if (st.url_resolved && !seen.has(st.stationuuid)) {
+          seen.add(st.stationuuid);
+          merged.push(st);
+        }
+      }
+    }
+  } catch (e) {
+    statusEl.textContent = "Network error reaching Radio Browser — try again.";
+    searchBtn.disabled = false;
+    return;
+  }
+
+  merged.sort((a, b) => b.clickcount - a.clickcount);
+  const top = merged.slice(0, 30);
+
+  searchBtn.disabled = false;
+
+  if (top.length === 0) {
+    statusEl.textContent = `No stations found for "${vibe.label}" in that country.`;
+    resultsEl.innerHTML = `<div class="empty-hint">Try "Any country" or a different vibe.</div>`;
+    return;
+  }
+
+  statusEl.textContent = `${top.length} stations found for "${vibe.label}".`;
+  render(top);
+}
+
+function render(list) {
+  resultsEl.innerHTML = "";
+  list.forEach((st, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.index = i;
+    const tags = (st.tags || "").split(",").slice(0, 3).join(" · ");
+    card.innerHTML = `
+      <div class="name"><span class="pulse"></span>${escapeHtml(st.name)}</div>
+      <div class="meta">${escapeHtml(st.country || "Unknown")} · ${escapeHtml(st.codec || "")} ${st.bitrate ? st.bitrate + "kbps" : ""} · ${st.clickcount} plays</div>
+      ${tags ? `<div class="tags">${escapeHtml(tags)}</div>` : ""}
+    `;
+    card.addEventListener("click", () => playStation(list, i));
+    resultsEl.appendChild(card);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function playStation(list, index) {
+  currentList = list;
+  currentIndex = index;
+  skipAttempts = 0;
+  const st = list[index];
+
+  audio.src = st.url_resolved;
+  audio.play().catch(() => {});
+  nowPlaying.innerHTML = `<span class="label">Now Playing</span>${escapeHtml(st.name)} — ${escapeHtml(st.country || "")}`;
+  statusEl.textContent = "";
+
+  registerClick(st.stationuuid);
+  highlightActive(index);
+}
+
+function highlightActive(index) {
+  [...resultsEl.children].forEach((el, i) => {
+    el.classList.toggle("active", i === index);
+  });
+}
+
+function registerClick(uuid) {
+  fetch(`${API_BASE}/json/url/${uuid}`).catch(() => {});
+}
+
+audio.addEventListener("error", () => {
+  if (currentIndex === -1 || currentList.length === 0) return;
+  skipAttempts++;
+  if (skipAttempts > MAX_SKIP_ATTEMPTS) {
+    statusEl.textContent = "Several stations in a row were offline — try a different vibe or country.";
+    return;
+  }
+  statusEl.textContent = `"${currentList[currentIndex].name}" is offline, skipping to the next station...`;
+  const nextIndex = (currentIndex + 1) % currentList.length;
+  playStation(currentList, nextIndex);
+});
+
+skipBtn.addEventListener("click", () => {
+  if (currentList.length === 0) return;
+  const nextIndex = (currentIndex + 1) % currentList.length;
+  playStation(currentList, nextIndex);
+});
+
+searchBtn.addEventListener("click", search);
+
+loadCountries();
+</script>
+</body>
+</html>
